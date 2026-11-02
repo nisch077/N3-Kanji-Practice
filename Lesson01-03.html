@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>N3 Kanji Study App - 日本語＆English</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif;
+        }
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-rose-500 selection:text-white">
+
+    <!-- Background glow effects -->
+    <div class="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-rose-600/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="fixed bottom-1/4 left-1/2 -translate-x-1/2 translate-y-1/2 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div id="app" class="relative z-10 w-full max-w-2xl bg-slate-900/90 backdrop-blur-xl rounded-3xl shadow-2xl p-6 sm:p-8 border border-slate-800/80">
+        
+        <!-- App Header -->
+        <header class="flex justify-between items-center mb-6 pb-5 border-b border-slate-800">
+            <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20">JLPT N3 Kanji</span>
+                <h1 class="text-2xl sm:text-3xl font-black bg-gradient-to-r from-rose-400 via-amber-300 to-indigo-400 bg-clip-text text-transparent mt-1">
+                    漢字マスター <span class="text-xs sm:text-sm font-semibold text-slate-400 ml-1">(20 Kanji)</span>
+                </h1>
+            </div>
+            <div id="score-badge" class="hidden text-sm font-bold bg-slate-800 border border-slate-700/80 px-4 py-2 rounded-2xl text-amber-300 shadow-inner">
+                Score: <span id="score-val" class="text-lg text-white font-extrabold">0</span>
+            </div>
+        </header>
+
+        <!-- Mode Selection View -->
+        <main id="mode-view" class="space-y-6">
+            <div class="text-center space-y-2">
+                <p class="text-slate-300 font-medium">Japanese Hiragana/Katakana + English Meanings</p>
+                <p class="text-xs text-slate-400">Master all 20 N3 Kanji before your test today!</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <button onclick="startGame('flashcard')" class="group relative bg-gradient-to-br from-indigo-600 to-slate-800 hover:from-indigo-500 hover:to-slate-700 p-6 rounded-2xl border border-indigo-500/30 text-left transition-all duration-200 hover:scale-[1.02] shadow-lg hover:shadow-indigo-500/20">
+                    <div class="text-3xl mb-3">📇</div>
+                    <h2 class="text-lg font-bold text-white group-hover:text-amber-300 transition">Flashcards</h2>
+                    <p class="text-xs text-slate-300 mt-1">単語カード (Tan-go Card)</p>
+                    <p class="text-xs text-slate-400 mt-2">Flip through kanji, readings, Japanese meanings & example words.</p>
+                </button>
+
+                <button onclick="startGame('quiz')" class="group relative bg-gradient-to-br from-rose-600 to-slate-800 hover:from-rose-500 hover:to-slate-700 p-6 rounded-2xl border border-rose-500/30 text-left transition-all duration-200 hover:scale-[1.02] shadow-lg hover:shadow-rose-500/20">
+                    <div class="text-3xl mb-3">✍️</div>
+                    <h2 class="text-lg font-bold text-white group-hover:text-amber-300 transition">Practice Quiz</h2>
+                    <p class="text-xs text-slate-300 mt-1">確認テスト (Test Mode)</p>
+                    <p class="text-xs text-slate-400 mt-2">10 randomized multiple-choice questions with full Japanese context.</p>
+                </button>
+            </div>
+
+            <!-- Full Kanji Overview List -->
+            <div class="mt-8 border-t border-slate-800 pt-6">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Today's 20 Kanji List</h3>
+                <div class="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                    <template id="kanji-grid-template">
+                        <div class="bg-slate-800/80 border border-slate-700/60 rounded-xl p-2 text-center hover:border-rose-400 hover:bg-slate-800 transition cursor-default group" title="">
+                            <span class="text-xl font-bold text-amber-300 group-hover:text-rose-300"></span>
+                        </div>
+                    </template>
+                    <div id="kanji-grid-container" class="contents"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Flashcard View -->
+        <div id="flashcard-view" class="hidden space-y-6">
+            <div class="flex justify-between items-center text-xs font-semibold text-slate-400">
+                <span id="card-counter">1 / 20</span>
+                <span class="text-rose-400">Click card to flip / タップで裏返し</span>
+            </div>
+
+            <!-- 3D Card Container -->
+            <div class="perspective-1000 min-h-[300px] sm:min-h-[320px] w-full">
+                <div id="card-inner" onclick="flipCard()" class="relative w-full h-full min-h-[300px] sm:min-h-[320px] rounded-2xl border border-slate-700/80 bg-slate-900/90 transform-style-3d transition-transform duration-500 cursor-pointer shadow-xl hover:border-amber-400/60">
+                    
+                    <!-- Front Side -->
+                    <div class="absolute inset-0 backface-hidden flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-b from-slate-800/80 to-slate-900">
+                        <div id="card-front-kanji" class="text-7xl sm:text-8xl font-black text-amber-300 mb-2 filter drop-shadow-md">起</div>
+                        <p class="text-xs text-slate-400 font-medium uppercase tracking-widest mt-2">Tap to see Japanese & English</p>
+                    </div>
+
+                    <!-- Back Side -->
+                    <div class="absolute inset-0 backface-hidden rotate-y-180 flex flex-col justify-between p-6 rounded-2xl bg-slate-800 border border-slate-700 text-left overflow-y-auto">
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-baseline border-b border-slate-700 pb-2">
+                                <span id="card-back-kanji" class="text-4xl font-extrabold text-amber-300">起</span>
+                                <span id="card-back-jp-meaning" class="text-lg font-bold text-rose-300">おきる・おこす</span>
+                            </div>
+
+                            <div class="space-y-1">
+                                <p class="text-xs uppercase font-semibold tracking-wider text-slate-400">Readings (読み)</p>
+                                <p id="card-readings" class="text-sm font-medium text-slate-200">訓: お・きる, お・こる / 音: キ</p>
+                            </div>
+
+                            <div class="space-y-1">
+                                <p class="text-xs uppercase font-semibold tracking-wider text-slate-400">English Meaning</p>
+                                <p id="card-en-meaning" class="text-sm font-semibold text-emerald-400">To wake up, to happen</p>
+                            </div>
+
+                            <div class="space-y-1 bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <p class="text-xs uppercase font-semibold tracking-wider text-slate-400 mb-1">Vocabulary (例文・単語)</p>
+                                <p id="card-vocab-jp" class="text-sm font-bold text-amber-200">起床 (きしょう) / 起きる (おきる)</p>
+                                <p id="card-vocab-en" class="text-xs text-slate-300">Getting out of bed / To wake up</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex items-center justify-between gap-4 pt-2">
+                <button onclick="prevCard()" class="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 px-4 rounded-xl transition border border-slate-700 text-sm">
+                    ← 前へ (Prev)
+                </button>
+                <button onclick="nextCard()" class="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 px-4 rounded-xl transition border border-slate-700 text-sm">
+                    次へ (Next) →
+                </button>
+            </div>
+
+            <button onclick="returnToMenu()" class="w-full bg-slate-800/60 hover:bg-slate-800 text-slate-400 py-2.5 rounded-xl text-xs font-semibold transition border border-slate-700/50">
+                ← 画面に戻る (Main Menu)
+            </button>
+        </div>
+
+        <!-- Quiz View -->
+        <div id="quiz-view" class="hidden space-y-6">
+            <!-- Progress Bar -->
+            <div class="space-y-2">
+                <div class="flex justify-between text-xs font-bold text-slate-400">
+                    <span id="quiz-progress-text">Question 1 of 10</span>
+                    <span id="quiz-question-type" class="text-rose-400">Kanji ➔ Japanese & English</span>
+                </div>
+                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700/50">
+                    <div id="quiz-progress-bar" class="bg-gradient-to-r from-rose-500 to-amber-400 h-full w-10/100 transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <!-- Question Box -->
+            <div class="bg-slate-900 border border-slate-700/80 rounded-2xl p-6 sm:p-8 text-center space-y-2 shadow-inner">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Select the correct reading & meaning</span>
+                <div id="quiz-kanji" class="text-6xl sm:text-7xl font-black text-amber-300 filter drop-shadow">起</div>
+            </div>
+
+            <!-- Options Grid -->
+            <div id="options-container" class="grid grid-cols-1 gap-3">
+                <!-- Options populated dynamically -->
+            </div>
+
+            <button onclick="returnToMenu()" class="w-full bg-slate-800/60 hover:bg-slate-800 text-slate-400 py-2.5 rounded-xl text-xs font-semibold transition border border-slate-700/50 mt-2">
+                ← 画面に戻る (Main Menu)
+            </button>
+        </div>
+
+        <!-- Results View -->
+        <div id="result-view" class="hidden space-y-6 text-center py-4">
+            <div class="inline-block p-4 bg-amber-400/10 rounded-full border border-amber-400/20 mb-2">
+                <span class="text-5xl">🏆</span>
+            </div>
+            
+            <div class="space-y-1">
+                <h2 class="text-2xl sm:text-3xl font-black text-white">お疲れ様でした！</h2>
+                <p class="text-sm text-slate-400">Test Preparation Completed</p>
+            </div>
+
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 max-w-sm mx-auto space-y-2">
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Your Score (得点)</p>
+                <div class="text-4xl font-black text-amber-300" id="final-score-text">0 / 10</div>
+                <p id="feedback-text" class="text-xs font-medium text-emerald-400 pt-1">素晴らしい！ Perfect score!</p>
+            </div>
+
+            <div class="pt-2 space-y-3">
+                <button onclick="startGame('quiz')" class="w-full bg-gradient-to-r from-rose-500 to-indigo-600 hover:from-rose-400 hover:to-indigo-500 text-white font-bold py-3.5 px-6 rounded-xl transition shadow-lg text-sm">
+                    再テスト (Try Quiz Again)
+                </button>
+                <button onclick="returnToMenu()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 rounded-xl transition text-sm border border-slate-700">
+                    メインメニュー (Main Menu)
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 20 JLPT N3 Kanji dataset containing Japanese meanings (Hiragana/Katakana) + English
+        const kanjiData = [
+            {
+                kanji: "起",
+                jpMeaning: "おきる・おこす",
+                readings: "訓: お・きる, お・こる / 音: キ",
+                enMeaning: "To wake up, to happen",
+                vocabJp: "起きる (おきる) / 起床 (きしょう)",
+                vocabEn: "To wake up / Rising from bed"
+            },
+            {
+                kanji: "寝",
+                jpMeaning: "ねる・ねかす",
+                readings: "訓: ね・る, ね・かす / 音: シン",
+                enMeaning: "To sleep, put to sleep",
+                vocabJp: "寝る (ねる) / 寝室 (しんしつ)",
+                vocabEn: "To sleep / Bedroom"
+            },
+            {
+                kanji: "浴",
+                jpMeaning: "あびる",
+                readings: "訓: あ・びる / 音: ヨク",
+                enMeaning: "To bathe, take a shower",
+                vocabJp: "浴びる (あびる) / 入浴 (にゅうよく)",
+                vocabEn: "To bathe / Bathing"
+            },
+            {
+                kanji: "湯",
+                jpMeaning: "おゆ",
+                readings: "訓: ゆ / 音: トウ",
+                enMeaning: "Hot water",
+                vocabJp: "お湯 (おゆ) / 熱湯 (ねっとう)",
+                vocabEn: "Hot water / Boiling water"
+            },
+            {
+                kanji: "洗",
+                jpMeaning: "あらう",
+                readings: "訓: あら・う / 音: セン",
+                enMeaning: "To wash",
+                vocabJp: "洗う (あらう) / 洗濯 (せんたく)",
+                vocabEn: "To wash / Laundry"
+            },
+            {
+                kanji: "濯",
+                jpMeaning: "すすぐ・せんたく",
+                readings: "音: タク",
+                enMeaning: "Rinse, laundry",
+                vocabJp: "洗濯機 (せんたくき)",
+                vocabEn: "Washing machine"
+            },
+            {
+                kanji: "干",
+                jpMeaning: "ほす・ひる",
+                readings: "訓: ほ・す, ひ・る / 音: カン",
+                enMeaning: "To dry, air out",
+                vocabJp: "干す (ほす) / 干物 (ひもの)",
+                vocabEn: "To dry / Dried fish"
+            },
+            {
+                kanji: "活",
+                jpMeaning: "いきる・いかす・せいかつ",
+                readings: "音: カツ",
+                enMeaning: "Liveliness, life, active",
+                vocabJp: "生活 (せいかつ) / 活発 (かっぱつ)",
+                vocabEn: "Living, life / Lively, active"
+            },
+            {
+                kanji: "拾",
+                jpMeaning: "ひろう",
+                readings: "訓: ひろ・う / 音: シュウ",
+                enMeaning: "To pick up, gather",
+                vocabJp: "拾う (ひろう) / 拾得物 (しゅうとくぶつ)",
+                vocabEn: "To pick up / Found items"
+            },
+            {
+                kanji: "捨",
+                jpMeaning: "すてる",
+                readings: "訓: す・てる / 音: シャ",
+                enMeaning: "To throw away, discard",
+                vocabJp: "捨てる (すてる) / 四捨五入 (ししゃごにゅう)",
+                vocabEn: "To throw away / Rounding off"
+            },
+            {
+                kanji: "燃",
+                jpMeaning: "もえる・もやす",
+                readings: "訓: も・える, も・やす / 音: ネン",
+                enMeaning: "To burn",
+                vocabJp: "燃える (もえる) / 可燃ゴミ (かねんごみ)",
+                vocabEn: "To burn / Burnable trash"
+            },
+            {
+                kanji: "袋",
+                jpMeaning: "ふくろ",
+                readings: "訓: ふくろ / 音: タイ",
+                enMeaning: "Bag, sack",
+                vocabJp: "手袋 (てぶくろ) / 紙袋 (かみぶくろ)",
+                vocabEn: "Gloves / Paper bag"
+            },
+            {
+                kanji: "曜",
+                jpMeaning: "ようび",
+                readings: "音: ヨウ",
+                enMeaning: "Day of the week",
+                vocabJp: "曜日 (ようび) / 水曜日 (すいようび)",
+                vocabEn: "Day of week / Wednesday"
+            },
+            {
+                kanji: "末",
+                jpMeaning: "すえ・おわり",
+                readings: "訓: すえ / 音: マツ",
+                enMeaning: "End, tip, close",
+                vocabJp: "週末 (しゅうまつ) / 年末 (ねんまつ)",
+                vocabEn: "Weekend / Year-end"
+            },
+            {
+                kanji: "昨",
+                jpMeaning: "きのう・まえ",
+                readings: "音: サク",
+                enMeaning: "Yesterday, previous, past",
+                vocabJp: "昨日 (きのう) / 昨年 (さくねん)",
+                vocabEn: "Yesterday / Last year"
+            },
+            {
+                kanji: "翌",
+                jpMeaning: "つぎ・あくる",
+                readings: "音: ヨク",
+                enMeaning: "The following, next",
+                vocabJp: "翌日 (よくじつ) / 翌週 (よくしゅう)",
+                vocabEn: "Next day / Following week"
+            },
+            {
+                kanji: "予",
+                jpMeaning: "あらかじめ・まえもって",
+                readings: "音: ヨ",
+                enMeaning: "Beforehand, previous",
+                vocabJp: "予定 (よてい) / 天気予報 (てんきよほう)",
+                vocabEn: "Schedule/Plan / Weather forecast"
+            },
+            {
+                kanji: "用",
+                jpMeaning: "もちいる・ようじ",
+                readings: "訓: もち・いる / 音: ヨウ",
+                enMeaning: "To use, business, task",
+                vocabJp: "用事 (ようじ) / 利用する (りようする)",
+                vocabEn: "Tasks/Business / To utilize"
+            },
+            {
+                kanji: "定",
+                jpMeaning: "さだまる・きまる",
+                readings: "訓: さだ・まる, さだ・める / 音: テイ",
+                enMeaning: "Decide, fix, establish",
+                vocabJp: "予定 (よてい) / 定期 (ていき)",
+                vocabEn: "Plan / Regular commute pass"
+            },
+            {
+                kanji: "事",
+                jpMeaning: "こと・できごと",
+                readings: "訓: こと / 音: ジ",
+                enMeaning: "Thing, matter, incident",
+                vocabJp: "仕事 (しごと) / 事実 (じじつ)",
+                vocabEn: "Work/Job / Fact"
+            }
+        ];
+
+        let flashcardIndex = 0;
+        let isCardFlipped = false;
+        let quizQuestions = [];
+        let currentQuizIndex = 0;
+        let score = 0;
+
+        // Initialize App Overview Grid
+        window.addEventListener('DOMContentLoaded', () => {
+            const gridContainer = document.getElementById('kanji-grid-container');
+            kanjiData.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-800/80 border border-slate-700/60 rounded-xl p-2 text-center hover:border-rose-400 hover:bg-slate-800 transition cursor-default group";
+                card.title = `${item.kanji}: ${item.jpMeaning} (${item.enMeaning})`;
+                card.innerHTML = `<span class="text-xl font-bold text-amber-300 group-hover:text-rose-300">${item.kanji}</span>`;
+                gridContainer.appendChild(card);
+            });
+        });
+
+        function startGame(mode) {
+            document.getElementById('mode-view').classList.add('hidden');
+            if (mode === 'flashcard') {
+                flashcardIndex = 0;
+                isCardFlipped = false;
+                updateFlashcardUI();
+                document.getElementById('flashcard-view').classList.remove('hidden');
+                document.getElementById('score-badge').classList.add('hidden');
+            } else if (mode === 'quiz') {
+                startQuiz();
+            }
+        }
+
+        function returnToMenu() {
+            document.getElementById('flashcard-view').classList.add('hidden');
+            document.getElementById('quiz-view').classList.add('hidden');
+            document.getElementById('result-view').classList.add('hidden');
+            document.getElementById('score-badge').classList.add('hidden');
+            document.getElementById('mode-view').classList.remove('hidden');
+        }
+
+        // --- Flashcard Functions ---
+        function updateFlashcardUI() {
+            const item = kanjiData[flashcardIndex];
+            
+            // Reset card rotation without animation glitch
+            const cardInner = document.getElementById('card-inner');
+            cardInner.classList.remove('rotate-y-180');
+            isCardFlipped = false;
+
+            setTimeout(() => {
+                document.getElementById('card-front-kanji').innerText = item.kanji;
+                document.getElementById('card-back-kanji').innerText = item.kanji;
+                document.getElementById('card-back-jp-meaning').innerText = item.jpMeaning;
+                document.getElementById('card-readings').innerText = item.readings;
+                document.getElementById('card-en-meaning').innerText = item.enMeaning;
+                document.getElementById('card-vocab-jp').innerText = item.vocabJp;
+                document.getElementById('card-vocab-en').innerText = item.vocabEn;
+                document.getElementById('card-counter').innerText = `${flashcardIndex + 1} / ${kanjiData.length}`;
+            }, 150);
+        }
+
+        function flipCard() {
+            isCardFlipped = !isCardFlipped;
+            const cardInner = document.getElementById('card-inner');
+            if (isCardFlipped) {
+                cardInner.classList.add('rotate-y-180');
+            } else {
+                cardInner.classList.remove('rotate-y-180');
+            }
+        }
+
+        function nextCard() {
+            flashcardIndex = (flashcardIndex + 1) % kanjiData.length;
+            updateFlashcardUI();
+        }
+
+        function prevCard() {
+            flashcardIndex = (flashcardIndex - 1 + kanjiData.length) % kanjiData.length;
+            updateFlashcardUI();
+        }
+
+        // --- Quiz Functions ---
+        function startQuiz() {
+            score = 0;
+            currentQuizIndex = 0;
+            quizQuestions = [...kanjiData].sort(() => 0.5 - Math.random()).slice(0, 10);
+            
+            document.getElementById('score-val').innerText = '0';
+            document.getElementById('score-badge').classList.remove('hidden');
+            document.getElementById('quiz-view').classList.remove('hidden');
+            
+            loadQuizQuestion();
+        }
+
+        function loadQuizQuestion() {
+            if (currentQuizIndex >= quizQuestions.length) {
+                showQuizResults();
+                return;
+            }
+
+            const q = quizQuestions[currentQuizIndex];
+            const total = quizQuestions.length;
+
+            // UI Progress updates
+            document.getElementById('quiz-progress-text').innerText = `Question ${currentQuizIndex + 1} of ${total}`;
+            document.getElementById('quiz-progress-bar').style.width = `${((currentQuizIndex + 1) / total) * 100}%`;
+            document.getElementById('quiz-kanji').innerText = q.kanji;
+
+            // Formulate Correct Choice: Japanese Hiragana/Katakana + English Meaning
+            const correctAnswerText = `【${q.jpMeaning}】 ${q.enMeaning}`;
+
+            // Generate 3 wrong distractors
+            let distractors = [];
+            while (distractors.length < 3) {
+                const randomItem = kanjiData[Math.floor(Math.random() * kanjiData.length)];
+                const optionText = `【${randomItem.jpMeaning}】 ${randomItem.enMeaning}`;
+                if (randomItem.kanji !== q.kanji && !distractors.includes(optionText)) {
+                    distractors.push(optionText);
+                }
+            }
+
+            // Combine and shuffle choices
+            const allChoices = [correctAnswerText, ...distractors].sort(() => 0.5 - Math.random());
+
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+
+            allChoices.forEach(choiceText => {
+                const btn = document.createElement('button');
+                btn.className = "w-full bg-slate-800 hover:bg-slate-700/80 text-slate-100 font-semibold text-left py-3.5 px-5 rounded-xl transition border border-slate-700/70 shadow-sm flex items-center justify-between text-sm sm:text-base";
+                btn.innerHTML = `<span>${choiceText}</span>`;
+                btn.onclick = () => handleAnswer(btn, choiceText === correctAnswerText, correctAnswerText);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(selectedBtn, isCorrect, correctAnswerText) {
+            const container = document.getElementById('options-container');
+            const buttons = container.querySelectorAll('button');
+
+            // Disable all option buttons after pick
+            buttons.forEach(btn => btn.disabled = true);
+
+            if (isCorrect) {
+                score++;
+                document.getElementById('score-val').innerText = score;
+                selectedBtn.classList.remove('bg-slate-800', 'border-slate-700/70');
+                selectedBtn.classList.add('bg-emerald-600/30', 'border-emerald-500', 'text-emerald-200');
+                selectedBtn.innerHTML += `<span class="text-emerald-400 font-bold ml-2">✓ 正解</span>`;
+            } else {
+                selectedBtn.classList.remove('bg-slate-800', 'border-slate-700/70');
+                selectedBtn.classList.add('bg-rose-600/30', 'border-rose-500', 'text-rose-200');
+                selectedBtn.innerHTML += `<span class="text-rose-400 font-bold ml-2">✕ 不正解</span>`;
+
+                // Highlight correct option
+                buttons.forEach(btn => {
+                    if (btn.innerText.includes(correctAnswerText)) {
+                        btn.classList.remove('bg-slate-800', 'border-slate-700/70');
+                        btn.classList.add('bg-emerald-600/20', 'border-emerald-500/80', 'text-emerald-200');
+                    }
+                });
+            }
+
+            setTimeout(() => {
+                currentQuizIndex++;
+                loadQuizQuestion();
+            }, 1300);
+        }
+
+        function showQuizResults() {
+            document.getElementById('quiz-view').classList.add('hidden');
+            document.getElementById('score-badge').classList.add('hidden');
+            document.getElementById('result-view').classList.remove('hidden');
+
+            const scoreDisplay = document.getElementById('final-score-text');
+            const feedback = document.getElementById('feedback-text');
+
+            scoreDisplay.innerText = `${score} / 10`;
+
+            if (score === 10) {
+                feedback.innerText = "🎉 満点！ 素晴らしいです！ (Perfect Score!)";
+                feedback.className = "text-xs font-bold text-emerald-400 pt-1";
+            } else if (score >= 7) {
+                feedback.innerText = "👍 合格圏内！ その調子です！ (Great job!)";
+                feedback.className = "text-xs font-bold text-amber-400 pt-1";
+            } else {
+                feedback.innerText = "💪 もう一度復習してみましょう！ (Review again!)";
+                feedback.className = "text-xs font-bold text-rose-400 pt-1";
+            }
+        }
+    </script>
+</body>
+</html>
